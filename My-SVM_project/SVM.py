@@ -8,12 +8,13 @@ import Kernel
 import itertools
 
 class SVM:
-    def __init__(self, kernel="rbf", degree=3, C=1, gamma=1
+    def __init__(self, kernel="rbf", degree=3, C=1, gamma=1, r=10
                  , fit_intercept=True, support_vector_alpha_threshold=0.1):
+        self.__kernel = kernel
         self.__degree = degree
         self.__C = C
         self.__gamma = gamma
-        self.__kernel = kernel
+        self.__r = r
         self.__init_kernel_func()
         # The model expect that the true labels will be 1 and -1
         self.__positive_label = 1
@@ -28,6 +29,7 @@ class SVM:
         self.__alphas = None
         self.__support_vectors_indices = None
         self.__support_vectors = None
+        self.__support_vectors_true_labels = None
         self.__support_vector_alpha_threshold = support_vector_alpha_threshold
 
     def __init_kernel_func(self):
@@ -39,7 +41,7 @@ class SVM:
             case "polynomial":
                 self.__kernel_func = Kernel.poly_kernel_generator(self.__degree)
             case "sigmoid":
-                self.__kernel_func = Kernel.sigmoid_kernel_generator(self.__gamma, r=10)
+                self.__kernel_func = Kernel.sigmoid_kernel_generator(self.__gamma, self.__r)
             case other:
                 raise ValueError(f"{self.__kernel} does not exist")
 
@@ -71,6 +73,7 @@ class SVM:
         P = np.empty((num_of_samples, num_of_samples))
         for i, j in itertools.product(range(num_of_samples), range(num_of_samples)):
             P[i, j] = y[i] * y[j] * self.__kernel_func(X[i, :], X[j, :])
+
         P = 0.5 * (P + P.T)
         P += np.eye(num_of_samples)
         P = sp.csc_matrix(P)
@@ -93,6 +96,7 @@ class SVM:
 
     def __find_support_vectors(self):
         self.__support_vectors = self.__X_train_np[self.__support_vectors_indices]
+        self.__support_vectors_true_labels = self.__y_train_np[self.__support_vectors_indices]
 
     def __find_support_vectors_alphas(self):
         self.__alphas = self.__alphas[self.__support_vectors_indices]
@@ -110,39 +114,17 @@ class SVM:
         else:
             raise RuntimeError("Model has not been fitted yet. Please call fit() first.")
 
-    def decision_function(self, X):
-        '''
-        decision_values = np.zeros(len(X))
-        y_values_of_support_vectors = self.__y_train_np[self.__support_vectors_indices]
-
-        test1 = self.__kernel_func(X.T, self.__support_vectors)
-        decision_values2 = y_values_of_support_vectors * self.__alphas * test1
-
-        for (xi, yi, ai) in zip(self.__support_vectors, y_values_of_support_vectors, self.__alphas):
-            decision_values += yi * ai * self.__kernel_func(X, xi)
-
-        print("fsafsaddfas")
+    def decision_function(self, X) -> np.array:
+        ROWS = 1
+        decision_values = np.apply_along_axis(self.__get_decision_val_for_single_feature_vector, arr=X, axis=ROWS)
         return decision_values
-        '''
 
-        # Extract support vectors, their corresponding labels, and alphas
-        support_vectors = self.__support_vectors
-        y_values_of_support_vectors = self.__y_train_np[self.__support_vectors_indices]
-        alphas = self.__alphas
-
-        # Compute the kernel values between each sample in X and each support vector
-        K = self.__kernel_func(X, support_vectors.T)  # Kernel function applied to the whole matrix
-
-        # Multiply kernel values with corresponding y values and alphas
-        weighted_kernels = y_values_of_support_vectors * alphas
-
-        # Transpose weighted_kernels to align dimensions for dot product
-        weighted_kernels_transposed = weighted_kernels.T
-
-        # Compute decision values
-        decision_values = np.dot(K, weighted_kernels_transposed)
-
-        return decision_values
+    def __get_decision_val_for_single_feature_vector(self, new_feature_vector):
+        current_decision_value = 0
+        for (xi, yi, ai) in zip(self.__support_vectors, self.__support_vectors_true_labels, self.__alphas):
+            test = self.__kernel_func(new_feature_vector, xi)
+            current_decision_value += yi * ai * test
+        return current_decision_value
 
     def score(self, X, y):
         if self.__fit_completed:
