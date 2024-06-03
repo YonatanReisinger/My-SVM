@@ -4,17 +4,9 @@ import scipy.sparse as sp
 import qpsolvers as qps
 import osqp
 import matplotlib.pyplot as plt
-import Kernel
-import itertools
 
-class SVM:
-    def __init__(self, kernel="rbf", degree=3, C=1, gamma=1
-                 , fit_intercept=True, optimization_form = "primal", zero_thresh = 0.1):
-        self.__degree = degree
-        self.__C = C
-        self.__gamma = gamma
-        self.__kernel = kernel
-        self.__init_kernel_func()
+class SimpleSVM:
+    def __init__(self, fit_intercept=True, optimization_form = "primal", zero_thresh = 0.1):
         self.__weights = None
         # The model expect that the true labels will be 1 and -1
         self.__positive_label = 1
@@ -27,22 +19,8 @@ class SVM:
         self.__X_train_np = None
         self.__y_train_np = None
         self.__original_labels = tuple()
-        self.__alphas = None
         self.__support_vectors = None
         self.__zero_thresh = zero_thresh
-
-    def __init_kernel_func(self):
-        match self.__kernel:
-            case "linear":
-                self.__kernel_func = Kernel.linear_kernel
-            case "rbf":
-                self.__kernel_func = Kernel.RBF_kernel_generator(self.__gamma)
-            case "polynomial":
-                self.__kernel_func = Kernel.poly_kernel_generator(self.__degree)
-            case "sigmoid":
-                self.__kernel_func = Kernel.sigmoid_kernel_generator(self.__gamma, r=10)
-            case other:
-                raise ValueError(f"{self.__kernel} does not exist")
 
     def __set_fit_params(self, X, y):
         unique_labels = np.unique(y)
@@ -51,7 +29,7 @@ class SVM:
             raise RuntimeError("Model is binary. can train just on classifications with just 2 classes")
 
         if self.__fit_intercept:
-            X = SVM.add_intercept(X)
+            X = SimpleSVM.add_intercept(X)
 
         self.__original_labels = unique_labels
         y = np.where(y == unique_labels[0], self.__negative_label, self.__positive_label)
@@ -63,77 +41,44 @@ class SVM:
         self.__set_fit_params(X, y)
         if self.__optimization_form == "primal":
             self.__fit_primal()
+            self.__fit_completed = True
         elif self.__optimization_form == "dual":
             self.__fit_dual()
-        self.__fit_completed = True
+            self.__fit_completed = True
+
     def __fit_primal(self):
         X = self.__X_train_np
         y = self.__y_train_np
-        N, n = X.shape  # N is the number of samples and n
 
-        # Construct the matrices
-        P = 0.5 * np.block([[np.eye(n), np.zeros((n, N))], [np.zeros((N, n + N))]])
-        q = self.__C * np.block([np.zeros(n), np.ones(N)])
-        G = np.block([[-np.diag(y) @ X, -np.eye(N)], [np.zeros((N, n)), -np.eye(N)]])
-        h = np.block([-np.ones(N), np.zeros(N)])
-        # Convert P and G to csc_matrix format
-        P = sp.csc_matrix(P)
-        G = sp.csc_matrix(G)
-        # Solve the quadratic programming problem
-        solution = qps.solve_qp(P, q, G, h, solver="osqp")
-        if solution is None:
-            raise ValueError("QP solver failed to find a solution")
-        # Extract the original weights (without slack variables)
-        original_weights = solution[:n]
-        self.__weights = original_weights
+        num_of_samples, num_of_features = X.shape
+        P = sp.eye(num_of_features, format='csc')
+        q = np.zeros(num_of_features)
+        G = -sp.csc_matrix(np.diag(y)) @ sp.csc_matrix(X)
+        h = -np.ones(num_of_samples)
+
+        self.__weights = qps.solve_qp(P, q, G, h, solver="osqp")
 
     def __fit_dual(self):
-        '''
-        X = self.__X_train_np
-        y = self.__y_train_np
-
-        num_of_samples = X.shape[0]
-        P = np.empty((num_of_samples, num_of_samples))
-        for i, j in itertools.product(range(num_of_samples), range(num_of_samples)):
-            P[i, j] = y[i] * y[j] * self.__kernel_func(X[i, :], X[j, :])
-        P = 0.5 * (P + P.T)
-        P += np.eye(num_of_samples)
-        q = -np.ones(num_of_samples)
-        G = np.vstack([-np.eye(num_of_samples), np.eye(num_of_samples)])
-        h = np.hstack([np.zeros(num_of_samples), np.ones(num_of_samples) * self.__C])
-        # Convert to sparse matrices
-        P = sp.csc_matrix(P)
-        G = sp.csc_matrix(G)
-        alpha = qps.solve_qp(P, q, G, h, solver='osqp')
-        support_vectors_indices = np.argwhere(np.abs(alpha) > self.__zero_thresh).reshape(-1)
-        self.__support_vectors = X[support_vectors_indices]
-        self.__weights = np.sum(alpha[:, None] * y[:, None] * X, axis=0)
-        '''
-
         X = self.__X_train_np
         y = self.__y_train_np
 
         num_of_samples = X.shape[0]
         G = sp.csc_matrix(np.diag(y) @ X)
-        P = np.empty((num_of_samples, num_of_samples))
-        for i, j in itertools.product(range(num_of_samples), range(num_of_samples)):
-            P[i, j] = y[i] * y[j] * self.__kernel_func(X[i, :], X[j, :])
-        P = 0.5 * (P + P.T)
-        P += np.eye(num_of_samples)
-        P = sp.csc_matrix(P)
+        P = G @ G.T
         q = -np.ones(num_of_samples)
-        GG = sp.csc_matrix(np.block([[-np.eye(num_of_samples)], [np.eye(num_of_samples)]]))
-        h = np.block([np.zeros(num_of_samples), self.__C * np.ones(num_of_samples)])
-        self.__alphas = qps.solve_qp(P, q, GG, h, solver='osqp')
-        support_vectors_indices = np.argwhere(np.abs(self.__alphas) > self.__zero_thresh).reshape(-1)
+        GG = -sp.eye(num_of_samples, format='csc')
+        h = np.zeros(num_of_samples)
+        alpha = qps.solve_qp(P, q, GG, h, solver='osqp')
+        support_vectors_indices = np.argwhere(np.abs(alpha) > self.__zero_thresh).reshape(-1)
         self.__support_vectors = X[support_vectors_indices]
-        self.__weights = G.T @ self.__alphas
+        self.__weights = G.T @ alpha
+
 
     def predict(self, X):
         if self.__fit_completed:
             feature_matrix = np.array(X)
             if self.__fit_intercept:
-                feature_matrix = SVM.add_intercept(feature_matrix)
+                feature_matrix = SimpleSVM.add_intercept(feature_matrix)
             predictions = np.apply_along_axis(self.predict_label_for_single_feature_vector
                                             , axis=1, arr=feature_matrix).tolist()
             return predictions
@@ -152,6 +97,7 @@ class SVM:
             true_labels = np.array(y)
             num_of_correct_classifications = np.sum(predictions == true_labels)
             return num_of_correct_classifications / len(y)
+
         else:
             raise RuntimeError("Model has not been fitted yet. Please call fit() first.")
 
