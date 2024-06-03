@@ -1,22 +1,21 @@
 import numpy as np
-import math
 
-
-def linear_kernel(first_vector, second_vector):
-    return np.dot(first_vector, second_vector)
+def linear_kernel(x, y):
+    return np.dot(x, y)
 
 def poly_kernel_generator(degree: int):
-    def poly_kernel(first_vector, second_vector):
-        return (1 + np.dot(first_vector, second_vector)) ** degree
+    def poly_kernel(x, y):
+        return (1 + np.dot(x, y)) ** degree
     return poly_kernel
 
 def RBF_kernel_generator(gamma: float):
-    def RBF_kernel(first_vector, second_vector):
-        return np.e ** (-gamma * ((first_vector - second_vector).T @ (first_vector - second_vector)))
+    def RBF_kernel(x, y):
+        return np.e ** (-gamma * np.linalg.norm(x - y) ** 2)
     return RBF_kernel
 
 def sigmoid_kernel_generator(gamma: float, r: float):
-    def sigmoid_kernel(first_vector, second_vector):
-        z = gamma * first_vector.T @ second_vector + r
-        return math.tanh(z)
+    def sigmoid_kernel(x, y):
+        test = np.dot(x, y)
+        z = (gamma * test) + r
+        return np.tanh(z)
     return sigmoid_kernel
