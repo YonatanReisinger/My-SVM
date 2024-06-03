@@ -6,12 +6,13 @@ import osqp
 import matplotlib.pyplot as plt
 
 class SimpleSVM:
-    def __init__(self, fit_intercept=True, optimization_form = "primal", zero_thresh = 0.1):
+    def __init__(self, fit_intercept=True, optimization_form = "primal", support_vector_alpha_threshold = 0.1):
         self.__weights = None
         # The model expect that the true labels will be 1 and -1
         self.__positive_label = 1
         self.__negative_label = -1
         self.__fit_intercept = fit_intercept
+        self.__VALID_OPTIMIZATION_FORMS = ["primal", "dual"]
         self.set_optimization_form(optimization_form)
         self.__fit_completed = False
         self.__margin = 1
@@ -20,7 +21,16 @@ class SimpleSVM:
         self.__y_train_np = None
         self.__original_labels = tuple()
         self.__support_vectors = None
-        self.__zero_thresh = zero_thresh
+        self.__support_vector_alpha_threshold = support_vector_alpha_threshold
+
+    def fit(self, X, y):
+        self.__set_fit_params(X, y)
+        if self.__optimization_form == "primal":
+            self.__fit_primal()
+            self.__fit_completed = True
+        elif self.__optimization_form == "dual":
+            self.__fit_dual()
+            self.__fit_completed = True
 
     def __set_fit_params(self, X, y):
         unique_labels = np.unique(y)
@@ -36,15 +46,6 @@ class SimpleSVM:
         # Save the data as numpy matrix in order to make calculations
         self.__X_train_np = np.array(X)
         self.__y_train_np = np.array(y)
-
-    def fit(self, X, y):
-        self.__set_fit_params(X, y)
-        if self.__optimization_form == "primal":
-            self.__fit_primal()
-            self.__fit_completed = True
-        elif self.__optimization_form == "dual":
-            self.__fit_dual()
-            self.__fit_completed = True
 
     def __fit_primal(self):
         X = self.__X_train_np
@@ -68,11 +69,14 @@ class SimpleSVM:
         q = -np.ones(num_of_samples)
         GG = -sp.eye(num_of_samples, format='csc')
         h = np.zeros(num_of_samples)
-        alpha = qps.solve_qp(P, q, GG, h, solver='osqp')
-        support_vectors_indices = np.argwhere(np.abs(alpha) > self.__zero_thresh).reshape(-1)
-        self.__support_vectors = X[support_vectors_indices]
-        self.__weights = G.T @ alpha
+        alphas = qps.solve_qp(P, q, GG, h, solver='osqp')
+        self.__find_support_vectors(alphas)
 
+        self.__weights = G.T @ alphas
+
+    def __find_support_vectors(self, alphas):
+        support_vectors_indices = np.argwhere(np.abs(alphas) > self.__support_vector_alpha_threshold).reshape(-1)
+        self.__support_vectors = self.__X_train_np[support_vectors_indices]
 
     def predict(self, X):
         if self.__fit_completed:
@@ -116,12 +120,7 @@ class SimpleSVM:
             plt.plot(X[red, 0], X[red, 1], 'o', color='red')
             plt.plot(X[blue, 0], X[blue, 1], 'o', color='blue')
 
-            # Draw support vectors from the fit process
-            if self.__support_vectors is not None:
-                plt.plot(self.__support_vectors[:, 0], self.__support_vectors[:, 1], 'o', color='green')
-                plt.scatter(self.__support_vectors[:, 0], self.__support_vectors[:, 1], s=100, facecolors='none',
-                            edgecolors='k', label='Support Vectors')
-
+            self.__draw_support_vectors()
             self.__draw_hyperplane(x_min, x_max)
 
             plt.axis([x_min - 1, x_max + 1, y_min - 1, y_max + 1])
@@ -129,6 +128,11 @@ class SimpleSVM:
         else:
             raise ValueError("just 2D plotting is supported")
 
+    def __draw_support_vectors(self):
+        if self.__support_vectors is not None:
+            plt.plot(self.__support_vectors[:, 0], self.__support_vectors[:, 1], 'o', color='green')
+            plt.scatter(self.__support_vectors[:, 0], self.__support_vectors[:, 1], s=100, facecolors='none',
+                        edgecolors='k', label='Support Vectors')
     def __draw_hyperplane(self, x_min, x_max):
         if self.__weights is not None:
             w0, w1, bias = self.__weights
@@ -163,8 +167,7 @@ class SimpleSVM:
 
     # ------------------- Setters -------------------
     def set_optimization_form(self, optimization_form):
-        valid_optimization_forms = ["primal", "dual"]
-        if optimization_form in valid_optimization_forms:
+        if optimization_form in self.__VALID_OPTIMIZATION_FORMS:
             self.__optimization_form = optimization_form
 
     # ------------------- static methods -------------------
