@@ -114,12 +114,7 @@ class SimpleSVM:
             y_min = X.min(axis=0)[1]
             y_max = X.max(axis=0)[1]
 
-            # Draw data points
-            red = np.where(y <= 0)
-            blue = np.where(y > 0)
-            plt.plot(X[red, 0], X[red, 1], 'o', color='red')
-            plt.plot(X[blue, 0], X[blue, 1], 'o', color='blue')
-
+            self.__draw_data_points(X, y)
             self.__draw_support_vectors()
             self.__draw_hyperplane(x_min, x_max)
 
@@ -127,6 +122,12 @@ class SimpleSVM:
             plt.show()
         else:
             raise ValueError("just 2D plotting is supported")
+
+    def __draw_data_points(self, X, y):
+        red = np.where(y == self.__original_labels[0])
+        blue = np.where(y == self.__original_labels[1])
+        plt.plot(X[red, 0], X[red, 1], 'o', color='red')
+        plt.plot(X[blue, 0], X[blue, 1], 'o', color='blue')
 
     def __draw_support_vectors(self):
         if self.__support_vectors is not None:
