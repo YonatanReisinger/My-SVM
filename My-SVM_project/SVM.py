@@ -70,10 +70,8 @@ class SVM:
         y = self.__y_train_np
 
         num_of_samples = X.shape[0]
-        P = np.empty((num_of_samples, num_of_samples))
-        for i, j in itertools.product(range(num_of_samples), range(num_of_samples)):
-            P[i, j] = y[i] * y[j] * self.__kernel_func(X[i, :], X[j, :])
-
+        K = self.__compute_kernel_matrix(X)
+        P = sp.csc_matrix(np.outer(y, y) * K)
         P = 0.5 * (P + P.T)
         P += np.eye(num_of_samples)
         P = sp.csc_matrix(P)
@@ -86,8 +84,15 @@ class SVM:
         self.__find_support_vectors()
         self.__find_support_vectors_alphas()
 
-    def __get_matrix_after_kernel(self):
-        pass
+    def __compute_kernel_matrix(self, X):
+        num_of_samples = X.shape[0]
+        K = np.zeros((num_of_samples, num_of_samples))
+        for i in range(num_of_samples):
+            for j in range(num_of_samples):
+                K[i, j] = self.__kernel_func(X[i, :], X[j, :])
+        return K
+
+    # TODO:
     def __find_matrices_for_optimzation(self):
         pass
 
@@ -117,14 +122,16 @@ class SVM:
     def decision_function(self, X) -> np.array:
         ROWS = 1
         decision_values = np.apply_along_axis(self.__get_decision_val_for_single_feature_vector, arr=X, axis=ROWS)
+
         return decision_values
 
     def __get_decision_val_for_single_feature_vector(self, new_feature_vector):
-        current_decision_value = 0
-        for (xi, yi, ai) in zip(self.__support_vectors, self.__support_vectors_true_labels, self.__alphas):
-            test = self.__kernel_func(new_feature_vector, xi)
-            current_decision_value += yi * ai * test
-        return current_decision_value
+        ROWS = 1
+        kernel_values = np.apply_along_axis(self.__kernel_func, ROWS,
+                                            self.__support_vectors, new_feature_vector)
+        decision_value = np.dot(self.__alphas * self.__support_vectors_true_labels, kernel_values)
+
+        return decision_value
 
     def score(self, X, y):
         if self.__fit_completed:
@@ -134,6 +141,52 @@ class SVM:
             return num_of_correct_classifications / len(y)
         else:
             raise RuntimeError("Model has not been fitted yet. Please call fit() first.")
+
+    def draw_classification(self, X, y):
+        if X.shape[1] != 2:
+            raise ValueError("just 2D plotting is supported")
+        elif not self.__fit_completed:
+            raise RuntimeError("Model has not been fitted yet. Please call fit() first.")
+        # else
+        X = np.array(X)
+        y = np.array(y)
+        self.__draw_data_points(X, y)
+        self.__draw_support_vectors()
+        self.__draw_hyperplane(X, y)
+        plt.show()
+
+
+    def __draw_data_points(self, X, y):
+        red = np.where(y == self.__original_labels[0])
+        blue = np.where(y == self.__original_labels[1])
+        plt.plot(X[red, 0], X[red, 1], 'o', color='red')
+        plt.plot(X[blue, 0], X[blue, 1], 'o', color='blue')
+
+    def __draw_support_vectors(self):
+        if self.__support_vectors is not None:
+            plt.plot(self.__support_vectors[:, 0], self.__support_vectors[:, 1], 'o', color='green')
+            plt.scatter(self.__support_vectors[:, 0], self.__support_vectors[:, 1], s=100, facecolors='none',
+                        edgecolors='k', label='Support Vectors')
+
+    def __draw_hyperplane(self, X, y):
+        x_min = X.min(axis=0)[0]
+        x_max = X.max(axis=0)[0]
+        y_min = X.min(axis=0)[1]
+        y_max = X.max(axis=0)[1]
+
+        xx = np.linspace(x_min, x_max)
+        yy = np.linspace(y_min, y_max)
+
+        xx, yy = np.meshgrid(xx, yy)
+
+        N = X.shape[0]
+        z = np.zeros(xx.shape)
+        for i, j in itertools.product(range(xx.shape[0]), range(xx.shape[1])):
+            z[i, j] = sum([y[k] * self.__alphas[k] * self.__kernel_func(X[k, :], np.array([xx[i, j], yy[i, j]])) for k in range(N)])
+
+        plt.rcParams["figure.figsize"] = [15, 10]
+        plt.contour(xx, yy, z, levels=[-self.__margin, 0, self.__margin]
+                    , colors=['red', 'black', 'blue'], linestyles=['--', '-', '--'])
 
     # ------------------- static methods -------------------
     @staticmethod

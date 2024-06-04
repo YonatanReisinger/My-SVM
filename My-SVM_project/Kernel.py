@@ -15,7 +15,6 @@ def RBF_kernel_generator(gamma: float):
 
 def sigmoid_kernel_generator(gamma: float, r: float):
     def sigmoid_kernel(x, y):
-        test = np.dot(x, y)
-        z = (gamma * test) + r
+        z = np.dot(x, y) * gamma + r
         return np.tanh(z)
     return sigmoid_kernel
