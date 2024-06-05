@@ -92,10 +92,6 @@ class SVM:
                 K[i, j] = self.__kernel_func(X[i, :], X[j, :])
         return K
 
-    # TODO:
-    def __find_matrices_for_optimzation(self):
-        pass
-
     def __find_support_vectors_indices(self):
         self.__support_vectors_indices = np.argwhere(np.abs(self.__alphas) > self.__support_vector_alpha_threshold).reshape(-1)
 
