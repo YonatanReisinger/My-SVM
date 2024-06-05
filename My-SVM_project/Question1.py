@@ -1,5 +1,5 @@
 import pandas as pd
-from SimpleSVM import SimpleSVM
+from SoftMarginSVM import SoftMarginSVM
 from sklearn.model_selection import train_test_split
 
 def question1():
@@ -12,13 +12,13 @@ def question1():
     question1_dualic(feature_matrix_train, feature_matrix_test, true_labels_train, true_labels_test)
 
 def question1_primal(feature_matrix_train, feature_matrix_test, true_labels_train, true_labels_test):
-    clf = SimpleSVM(optimization_form="primal")
+    clf = SoftMarginSVM(optimization_form="primal")
     clf.fit(feature_matrix_train, true_labels_train)
     print(f"The weights using primal fit are: {clf.get_weights()}")
     clf.draw_classification(feature_matrix_test, true_labels_test)
 
 def question1_dualic(feature_matrix_train, feature_matrix_test, true_labels_train, true_labels_test):
-    clf = SimpleSVM(optimization_form="dual")
+    clf = SoftMarginSVM(optimization_form="dual")
     clf.fit(feature_matrix_train, true_labels_train)
     print(f"The weights using dual fit are: {clf.get_weights()}")
     clf.draw_classification(feature_matrix_test, true_labels_test)

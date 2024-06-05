@@ -5,7 +5,7 @@ import qpsolvers as qps
 import osqp
 import matplotlib.pyplot as plt
 
-class SimpleSVM:
+class SoftMarginSVM:
     def __init__(self, fit_intercept=True, optimization_form = "primal", support_vector_alpha_threshold = 0.1):
         self.__weights = None
         # The model expect that the true labels will be 1 and -1
@@ -39,7 +39,7 @@ class SimpleSVM:
             raise RuntimeError("Model is binary. can train just on classifications with just 2 classes")
 
         if self.__fit_intercept:
-            X = SimpleSVM.add_intercept(X)
+            X = SoftMarginSVM.add_intercept(X)
 
         self.__original_labels = unique_labels
         y = np.where(y == unique_labels[0], self.__negative_label, self.__positive_label)
@@ -82,7 +82,7 @@ class SimpleSVM:
         if self.__fit_completed:
             feature_matrix = np.array(X)
             if self.__fit_intercept:
-                feature_matrix = SimpleSVM.add_intercept(feature_matrix)
+                feature_matrix = SoftMarginSVM.add_intercept(feature_matrix)
             predictions = np.apply_along_axis(self.predict_label_for_single_feature_vector
                                             , axis=1, arr=feature_matrix).tolist()
             return predictions
@@ -119,6 +119,7 @@ class SimpleSVM:
             self.__draw_hyperplane(x_min, x_max)
 
             plt.axis([x_min - 1, x_max + 1, y_min - 1, y_max + 1])
+            plt.title("SVM Classification With Support Vectors (Green dots)")
             plt.show()
         else:
             raise ValueError("just 2D plotting is supported")
