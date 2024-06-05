@@ -5,7 +5,7 @@ import qpsolvers as qps
 import osqp
 import matplotlib.pyplot as plt
 
-class SoftMarginSVM:
+class HardMarginSVM:
     def __init__(self, fit_intercept=True, optimization_form = "primal", support_vector_alpha_threshold = 0.1):
         self.__weights = None
         # The model expect that the true labels will be 1 and -1
@@ -39,7 +39,7 @@ class SoftMarginSVM:
             raise RuntimeError("Model is binary. can train just on classifications with just 2 classes")
 
         if self.__fit_intercept:
-            X = SoftMarginSVM.add_intercept(X)
+            X = HardMarginSVM.add_intercept(X)
 
         self.__original_labels = unique_labels
         y = np.where(y == unique_labels[0], self.__negative_label, self.__positive_label)
@@ -82,7 +82,7 @@ class SoftMarginSVM:
         if self.__fit_completed:
             feature_matrix = np.array(X)
             if self.__fit_intercept:
-                feature_matrix = SoftMarginSVM.add_intercept(feature_matrix)
+                feature_matrix = HardMarginSVM.add_intercept(feature_matrix)
             predictions = np.apply_along_axis(self.predict_label_for_single_feature_vector
                                             , axis=1, arr=feature_matrix).tolist()
             return predictions
