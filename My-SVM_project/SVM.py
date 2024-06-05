@@ -149,6 +149,7 @@ class SVM:
         self.__draw_data_points(X, y)
         self.__draw_support_vectors()
         self.__draw_hyperplane(X, y)
+        plt.title("SVM Classification With Support Vectors (Green dots)")
         plt.show()
 
 

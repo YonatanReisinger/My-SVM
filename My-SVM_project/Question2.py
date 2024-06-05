@@ -12,7 +12,7 @@ def question2():
         train_test_split(feature_matrix, true_labels, test_size=0.2, shuffle=True))
     draw_errors_bars(feature_matrix_train, feature_matrix_test
                      , true_labels_train, true_labels_test, C=1e20 * sys.maxsize)
-    clf = SVM(kernel="rbf", C=1e20 * sys.maxsize, degree=2, gamma=2,support_vector_alpha_threshold=0.25)
+    clf = SVM(kernel="rbf", C=1e20 * sys.maxsize, gamma=2, support_vector_alpha_threshold=0.25)
     clf.fit(feature_matrix_train, true_labels_train)
     clf.draw_classification(feature_matrix_test, true_labels_test)
 
