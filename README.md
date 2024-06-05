@@ -1,0 +1,1 @@
+![Alt text](My-SVM_project/Images/Q1b - Soft Margin Dualic.jpg)
